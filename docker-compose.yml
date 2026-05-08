@@ -1,19 +1,6 @@
-x-spark-common: &spark-common
-  image: bitnami/spark:3.5
-  environment:
-    - SPARK_MODE=worker
-    - SPARK_MASTER_URL=spark://spark-master:7077
-    - SPARK_WORKER_MEMORY=4G
-    - SPARK_WORKER_CORES=2
-    - SPARK_RPC_AUTHENTICATION_ENABLED=no
-    - SPARK_RPC_ENCRYPTION_ENABLED=no
-  volumes:
-    - ./data:/data
-    - ./src:/src
-  depends_on:
-    - spark-master
-
 services:
+
+  # ── Spark cluster ──────────────────────────────────────────────────
   spark-master:
     image: bitnami/spark:3.5
     environment:
@@ -21,14 +8,14 @@ services:
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
     ports:
-      - "8080:8080"   # Spark UI
+      - "8080:8080"   # Spark Master UI
       - "7077:7077"   # Spark master
     volumes:
       - ./data:/data
       - ./src:/src
 
   spark-worker-1:
-    <<: *spark-common
+    image: bitnami/spark:3.5
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
@@ -36,23 +23,13 @@ services:
       - SPARK_WORKER_CORES=2
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
-
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.13.0
-    ports:
-      - "5000:5000"
-    environment:
-      - MLFLOW_BACKEND_STORE_URI=sqlite:////mlflow/mlflow.db
-      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
     volumes:
-      - ./mlflow:/mlflow
-    command: >
-      mlflow server
-      --host 0.0.0.0
-      --port 5000
-      --backend-store-uri sqlite:////mlflow/mlflow.db
-      --default-artifact-root /mlflow/artifacts
+      - ./data:/data
+      - ./src:/src
+    depends_on:
+      - spark-master
 
+  # ── Jupyter (runs pipeline + notebooks) ───────────────────────────
   jupyter:
     build:
       context: .
@@ -79,6 +56,24 @@ services:
       --NotebookApp.token=''
       --NotebookApp.password=''
 
+  # ── MLflow tracking server ─────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.13.0
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=sqlite:////mlflow/mlflow.db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - ./mlflow:/mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+
+  # ── Plotly Dash dashboard ──────────────────────────────────────────
   dash:
     build:
       context: .
@@ -91,16 +86,15 @@ services:
     volumes:
       - ./data:/data
       - ./dashboard:/app/dashboard
-    depends_on: []   # reads Gold Delta only — no Spark dependency at runtime
 
-  # Kafka + Zookeeper — dormant until Part 4 (Streaming)
+  # ── Kafka + Zookeeper — dormant until Part 4 (Streaming) ──────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     profiles:
-      - streaming   # only activated with: docker compose --profile streaming up
+      - streaming
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -109,11 +103,11 @@ services:
     ports:
       - "9092:9092"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      - KAFKA_BROKER_ID=1
+      - "KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181"
+      - "KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
+      - "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     profiles:
       - streaming
