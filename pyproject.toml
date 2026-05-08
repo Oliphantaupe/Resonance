@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bigdata-music"
+version = "1.0.0"
+description = "UE28 Big Data — Spotify Charts Medallion Pipeline"
+requires-python = ">=3.10"
+dependencies = [
+    "pyspark==3.5.1",
+    "delta-spark==3.2.0",
+    "pandas==2.2.2",
+    "pyarrow==16.1.0",
+    "deltalake==0.18.2",
+    "dash==2.17.1",
+    "dash-bootstrap-components==1.6.0",
+    "plotly==5.22.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.2.2",
+    "pytest-cov==5.0.0",
+    "jupyter==1.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=bigdata_music --cov-report=term-missing"

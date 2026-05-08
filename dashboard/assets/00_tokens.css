@@ -1,0 +1,49 @@
+/* Resonance — design tokens (:root CSS variables) */
+:root {
+  /* Background layers */
+  --res-bg:           #0A0A0C;
+  --res-bg-card:      rgba(255,255,255,0.035);
+  --res-bg-card-elev: rgba(255,255,255,0.06);
+  --res-bg-chart:     #0E0E11;
+  --res-bg-input:     rgba(255,255,255,0.04);
+  --res-bg-hover:     rgba(255,255,255,0.06);
+  --res-bg-selected:  rgba(110,91,255,0.12);
+
+  /* Borders */
+  --res-border:        rgba(255,255,255,0.07);
+  --res-border-strong: rgba(255,255,255,0.12);
+  --res-border-inset:  rgba(255,255,255,0.04);
+
+  /* Text */
+  --res-text:           #FAFAFB;
+  --res-text-secondary: #A6A6AE;
+  --res-text-tertiary:  #6B6B74;
+  --res-text-disabled:  #3F3F47;
+
+  /* Accent — electric indigo */
+  --res-accent:         #6E5BFF;
+  --res-accent-hover:   #8174FF;
+  --res-accent-pressed: #5A48E8;
+  --res-accent-glow:    rgba(110,91,255,0.32);
+  --res-accent-soft:    rgba(110,91,255,0.14);
+
+  /* Chart palette (8 colors, dark-optimised) */
+  --res-c1:#7A6BFF; --res-c2:#22D3EE; --res-c3:#F472B6; --res-c4:#FBBF24;
+  --res-c5:#34D399; --res-c6:#FB7185; --res-c7:#A78BFA; --res-c8:#60A5FA;
+
+  /* Semantic */
+  --res-success:#30D158; --res-warning:#FFD60A; --res-danger:#FF453A; --res-info:#64D2FF;
+
+  /* Mood quadrants */
+  --res-mood-happy:#F5C24A; --res-mood-calm:#5BE3C8;
+  --res-mood-angry:#FF6B6B; --res-mood-sad:#7AA8FF;
+
+  /* Radii */
+  --res-r-card:    16px;
+  --res-r-card-lg: 20px;
+  --res-r-input:   10px;
+
+  /* Type */
+  --res-font: "SF Pro Display","SF Pro Text",system-ui,-apple-system,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --res-font-mono: "SF Mono",ui-monospace,"JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+}
