@@ -37,6 +37,22 @@ services:
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
 
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.13.0
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=sqlite:////mlflow/mlflow.db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - ./mlflow:/mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+
   jupyter:
     build:
       context: .
@@ -49,6 +65,7 @@ services:
       - DATA_ROOT=/data
       - JUPYTER_ENABLE_LAB=yes
       - PYTHONPATH=/src
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
       - ./data:/data
       - ./src:/src
@@ -56,6 +73,7 @@ services:
       - ./reports:/home/jovyan/reports
     depends_on:
       - spark-master
+      - mlflow
     command: >
       start-notebook.sh
       --NotebookApp.token=''

@@ -6,6 +6,8 @@ Usage:
         df_enriched.write...
 
 Each block writes a JSON line to reports/perf_metrics.jsonl.
+If an MLflow run is active, wall time is also logged as a metric so all
+experiments are visible in the MLflow UI at http://localhost:5000.
 Compare runs with AQE on/off and with/without repartition to get the
 before/after numbers the rapport needs.
 """
@@ -31,12 +33,23 @@ def _capture_spark_metrics(spark) -> dict:
     }
 
 
+def _mlflow_log_metric(key: str, value: float) -> None:
+    """Log a metric to the active MLflow run if one exists (no-op otherwise)."""
+    try:
+        import mlflow
+        if mlflow.active_run():
+            mlflow.log_metric(key.replace(".", "_"), value)
+    except Exception:
+        pass
+
+
 @contextmanager
 def measure(spark, label: str):
     """Context manager: capture wall-clock time around a Spark action block.
 
     Appends a JSON record to reports/perf_metrics.jsonl so multiple runs
     can be compared in the notebook (99_perf_analysis.ipynb).
+    Also forwards the wall_sec metric to MLflow when a run is active.
 
     Example record:
       {"label": "...", "aqe": true, "wall_sec": 42.3, ...}
@@ -63,3 +76,5 @@ def measure(spark, label: str):
     METRICS_FILE.parent.mkdir(parents=True, exist_ok=True)
     with METRICS_FILE.open("a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
+
+    _mlflow_log_metric(f"{label}.wall_sec", round(elapsed, 2))

@@ -1,8 +1,8 @@
-.PHONY: up down pipeline notebook test clean verify
+.PHONY: up down pipeline notebook test clean verify mlflow-ui urls
 
 # --- Docker ---
 up:
-	docker compose up -d spark-master spark-worker-1 jupyter dash
+	docker compose up -d spark-master spark-worker-1 jupyter dash mlflow
 
 down:
 	docker compose down
@@ -12,10 +12,10 @@ streaming-up:
 
 # --- Pipeline ---
 pipeline:
-	docker compose exec jupyter python /src/bigdata_music/pipeline.py
+	docker compose exec jupyter python -m bigdata_music.pipeline
 
 pipeline-local:
-	python -m bigdata_music.pipeline
+	PYTHONPATH=src python -m bigdata_music.pipeline
 
 # --- Notebook ---
 notebook:
@@ -24,10 +24,15 @@ notebook:
 
 # --- Tests ---
 test:
-	docker compose exec jupyter pytest /src/tests/ -v
+	docker compose exec jupyter pytest /src/tests/ -v --cov=/src/bigdata_music --cov-report=term-missing
 
 test-local:
-	PYTHONPATH=src pytest tests/ -v
+	PYTHONPATH=src pytest tests/ -v --cov=src/bigdata_music --cov-report=term-missing
+
+# --- MLflow ---
+mlflow-ui:
+	@echo "MLflow UI: http://localhost:5000"
+	docker compose up -d mlflow
 
 # --- Data ---
 verify:
@@ -42,8 +47,10 @@ clean-delta:
 logs:
 	docker compose logs -f jupyter
 
-spark-ui:
+# --- URLs ---
+urls:
 	@echo "Spark Master UI: http://localhost:8080"
 	@echo "Spark App UI:    http://localhost:4040"
 	@echo "Dash:            http://localhost:8050"
 	@echo "Jupyter:         http://localhost:8888"
+	@echo "MLflow:          http://localhost:5000"
