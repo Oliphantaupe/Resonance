@@ -191,8 +191,9 @@ def update_secondary(year):
         paper_bgcolor="rgba(0,0,0,0)",
     )
 
-    # Season line — explicit traces to guarantee exactly 4 lines
+    # Season line — one trace per mood, exactly 4 x-points, no spline artifacts
     season_order = ["Spring", "Summer", "Autumn", "Winter"]
+    _ord_map = {s: i for i, s in enumerate(season_order)}
     agg = (
         dy[dy["mood_quadrant"].isin(MOOD_COLORS)]
         .groupby(["season", "mood_quadrant"])["total_streams"].sum()
@@ -200,14 +201,17 @@ def update_secondary(year):
     )
     fig_line = go.Figure()
     for mood, color in MOOD_COLORS.items():
-        row = agg[agg["mood_quadrant"] == mood].copy()
-        row["_ord"] = row["season"].map({s: i for i, s in enumerate(season_order)})
-        row = row.sort_values("_ord")
+        # Build a full 4-season series; missing seasons → 0 streams
+        season_vals = {s: 0 for s in season_order}
+        for _, r in agg[agg["mood_quadrant"] == mood].iterrows():
+            if r["season"] in season_vals:
+                season_vals[r["season"]] = r["total_streams"]
         fig_line.add_trace(go.Scatter(
-            x=row["season"], y=row["total_streams"],
+            x=season_order,
+            y=[season_vals[s] for s in season_order],
             mode="lines+markers", name=mood,
-            line=dict(color=color, width=2, shape="spline"),
-            marker=dict(color=color, size=6, line=dict(color="#0E0E11", width=1.5)),
+            line=dict(color=color, width=2),
+            marker=dict(color=color, size=7, line=dict(color="#0E0E11", width=1.5)),
             hovertemplate=f"<b>{mood}</b><br>%{{x}}: %{{y:,.0f}}<extra></extra>",
         ))
     fig_line.update_layout(

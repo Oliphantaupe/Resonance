@@ -66,6 +66,7 @@ def build_charts_enriched(spark: SparkSession) -> int:
     (
         enriched.write
         .format("delta")
+        .partitionBy("region", "year", "month")
         .mode("overwrite")
         .save(config.SILVER_CHARTS_ENRICHED)
     )

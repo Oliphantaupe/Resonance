@@ -12,7 +12,8 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
-mlflow/
+mlflow/*.db
+mlflow/artifacts/
 mlruns/
 *.log
 reports/perf_metrics.jsonl
