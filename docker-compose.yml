@@ -1,8 +1,6 @@
 services:
 
   # ── Jupyter + Spark (local mode) ──────────────────────────────────────────
-  # Runs the pipeline in local[*] mode — no separate cluster needed.
-  # Spark Application UI is available at http://localhost:4040 while running.
   jupyter:
     build:
       context: .
@@ -13,15 +11,23 @@ services:
     environment:
       - SPARK_MASTER_URL=local[*]
       - DATA_ROOT=/data
+      - REPORTS_DIR=/home/jovyan/reports
       - JUPYTER_ENABLE_LAB=yes
       - PYTHONPATH=/src
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
-      - ./data:/data
+      # Source / config — bind mounts (small, code only)
       - ./src:/src
       - ./notebooks:/home/jovyan/notebooks
       - ./reports:/home/jovyan/reports
       - ./conf:/home/jovyan/conf
+      # Raw input — bind mount, read-only (sequential reads are fine over WSL2)
+      - ./data/raw:/data/raw:ro
+      # Derived data — named volumes on native ext4 (avoids WSL2 bind-mount I/O penalty)
+      - bronze_vol:/data/bronze
+      - silver_vol:/data/silver
+      - gold_vol:/data/gold
+      - sparktmp_vol:/data/spark-tmp
     depends_on:
       - mlflow
 
@@ -50,8 +56,8 @@ services:
       - DATA_ROOT=/data
       - PYTHONPATH=/app
     volumes:
-      - ./data:/data
       - ./dashboard:/app/dashboard
+      - gold_vol:/data/gold:ro   # same named volume as jupyter — no copy needed
 
   # ── Kafka + Zookeeper — dormant until Part 4 (Streaming) ──────────────────
   zookeeper:
@@ -77,3 +83,9 @@ services:
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     profiles:
       - streaming
+
+volumes:
+  bronze_vol:
+  silver_vol:
+  gold_vol:
+  sparktmp_vol:
