@@ -1,6 +1,6 @@
-.PHONY: up down pipeline notebook test clean verify mlflow-ui urls
+.PHONY: up down pipeline charts test clean verify mlflow-ui urls
 
-# --- Docker ---
+# --- Docker (primary workflow) ---
 up:
 	docker compose up -d spark-master spark-worker-1 jupyter dash mlflow
 
@@ -17,10 +17,9 @@ pipeline:
 pipeline-local:
 	PYTHONPATH=src python -m bigdata_music.pipeline
 
-# --- Notebook ---
-notebook:
-	@echo "Jupyter running at http://localhost:8888"
-	docker compose up -d jupyter
+# --- Performance charts (no Jupyter needed) ---
+charts:
+	python scripts/perf_charts.py
 
 # --- Tests ---
 test:
@@ -49,8 +48,8 @@ logs:
 
 # --- URLs ---
 urls:
-	@echo "Spark Master UI: http://localhost:8080"
-	@echo "Spark App UI:    http://localhost:4040"
-	@echo "Dash:            http://localhost:8050"
-	@echo "Jupyter:         http://localhost:8888"
+	@echo "Dashboard:       http://localhost:8050"
 	@echo "MLflow:          http://localhost:5000"
+	@echo "Spark Master UI: http://localhost:8080"
+	@echo "Spark App UI:    http://localhost:4040  (only while pipeline runs)"
+	@echo "Jupyter:         http://localhost:8888"
