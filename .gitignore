@@ -1,4 +1,5 @@
-data/raw/
+data/raw/*
+!data/raw/countries.csv
 data/bronze/
 data/silver/
 data/gold/

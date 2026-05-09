@@ -6,46 +6,43 @@ Medallion pipeline (Bronze → Silver → Gold) over 26 million Spotify chart en
 
 ## Prerequisites
 
-| Tool | Version | Install |
-|---|---|---|
-| Docker Desktop | ≥ 4.x | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
-| Kaggle account | — | [kaggle.com](https://www.kaggle.com) — needed to download the charts dataset |
-
-Everything else (Python, Java, Spark, dependencies) runs inside Docker. No local install required.
+| Tool | Install |
+|---|---|
+| **Docker Desktop** | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) — enable WSL 2 backend on Windows |
+| **`make`** | macOS/Linux: pre-installed. Windows: `choco install make` (requires [Chocolatey](https://chocolatey.org/install)) or use the equivalent commands listed below |
+| **Python 3.10+** | Only needed to run the data download script — not needed inside Docker |
+| **Kaggle account** | [kaggle.com](https://www.kaggle.com) — needed to download the charts dataset |
 
 ---
 
 ## Step 1 — Get the data
 
-The raw data is not included in the repo (~7.4 GB total). Download it once before running anything.
+The raw datasets are not included in the repo (~7.4 GB total). Download them once before running anything. `countries.csv` is already in the repo — no download needed for that one.
 
-### 1a — Kaggle charts dataset (~3.5 GB)
+### 1a — Install download dependencies
+
+```bash
+pip install kaggle huggingface_hub
+```
+
+> On Windows use `python -m pip install kaggle huggingface_hub`
+
+### 1b — Set up Kaggle credentials
 
 1. Go to [kaggle.com](https://www.kaggle.com) → Account → **API** → **Create New Token**
-2. This downloads a `kaggle.json` file. Place it at:
-   - **Windows:** `C:\Users\<you>\.kaggle\kaggle.json`
+2. This downloads `kaggle.json`. Place it at:
    - **macOS / Linux:** `~/.kaggle/kaggle.json`
-3. Install the Kaggle CLI and download:
-   ```bash
-   pip install kaggle huggingface_hub
-   python scripts/download_data.py --source kaggle
-   ```
+   - **Windows:** `C:\Users\<your-username>\.kaggle\kaggle.json`
 
-### 1b — Track features dataset (~4.1 GB)
+### 1c — Download
 
 ```bash
-python scripts/download_data.py --source hf
+python scripts/download_data.py --source kaggle   # charts.csv (~3.5 GB)
+python scripts/download_data.py --source hf       # track_features.parquet (~4.1 GB)
+python scripts/download_data.py --source verify   # confirm both files OK
 ```
 
-### Verify downloads
-
-```bash
-python scripts/download_data.py --source verify
-```
-
-Expected output: `OK  charts.csv … OK  track_features.parquet … OK  countries.csv`
-
-> `countries.csv` is already in the repo — no download needed.
+Expected output from `verify`: three `OK` lines for `charts.csv`, `track_features.parquet`, and `countries.csv`.
 
 ---
 
@@ -55,8 +52,16 @@ Expected output: `OK  charts.csv … OK  track_features.parquet … OK  countrie
 make up
 ```
 
-This starts five services in Docker: Spark master + worker, Jupyter, Dash dashboard, and MLflow.
-First run pulls images and builds containers (~3–5 min). Subsequent starts take seconds.
+**Windows without `make`:**
+```bash
+docker compose up -d spark-master spark-worker-1 jupyter dash mlflow
+```
+
+Pulls images and builds containers on first run (~3–5 min). Wait until all services are healthy:
+
+```bash
+docker compose ps   # all should show "running"
+```
 
 ---
 
@@ -66,9 +71,12 @@ First run pulls images and builds containers (~3–5 min). Subsequent starts tak
 make pipeline
 ```
 
-Runs Bronze → Silver → Gold inside the Jupyter container. Reads from `data/raw/`, writes Delta tables to `data/bronze/`, `data/silver/`, `data/gold/`. Takes **~10–15 minutes** on a modern laptop.
+**Windows without `make`:**
+```bash
+docker compose exec jupyter python -m bigdata_music.pipeline
+```
 
-Progress is printed to the terminal. When it finishes you'll see `Pipeline complete`.
+Runs Bronze → Silver → Gold inside the Jupyter container. Takes **~10–15 minutes**. When done you'll see `Pipeline complete` in the terminal.
 
 ---
 
@@ -77,12 +85,10 @@ Progress is printed to the terminal. When it finishes you'll see `Pipeline compl
 | URL | What's there |
 |---|---|
 | **http://localhost:8050** | Plotly Dash dashboard (5 pages) |
-| **http://localhost:5000** | MLflow — pipeline run history, metrics, params |
+| **http://localhost:5000** | MLflow — run history, metrics, params |
 | **http://localhost:8080** | Spark Master UI |
-| **http://localhost:4040** | Spark Application UI (only while pipeline is running) |
+| **http://localhost:4040** | Spark Application UI *(only while pipeline runs)* |
 | **http://localhost:8888** | Jupyter Lab |
-
-Run `make urls` to print this table at any time.
 
 ---
 
@@ -94,7 +100,7 @@ After the pipeline completes, generate the AA4 performance charts (no Jupyter ne
 python scripts/perf_charts.py
 ```
 
-Outputs three PNG files to `reports/spark_ui/` and prints a summary table to stdout.
+Saves three PNG files to `reports/spark_ui/` and prints a summary table.
 
 ---
 
@@ -104,7 +110,12 @@ Outputs three PNG files to `reports/spark_ui/` and prints a summary table to std
 make test
 ```
 
-Runs pytest inside the Docker container. No data files needed — tests use inline `createDataFrame()`.
+**Windows without `make`:**
+```bash
+docker compose exec jupyter pytest /src/tests/ -v --cov=/src/bigdata_music --cov-report=term-missing
+```
+
+No data files needed — tests use inline `createDataFrame()`.
 
 ---
 
@@ -112,16 +123,16 @@ Runs pytest inside the Docker container. No data files needed — tests use inli
 
 ```bash
 make down
+# or
+docker compose down
 ```
 
 ---
 
-## Re-running the pipeline
-
-The pipeline deletes and rewrites Delta outputs on each run. To run only one layer:
+## Re-running individual layers
 
 ```bash
-# Silver + Gold only (skip Bronze — useful after first run)
+# Silver + Gold only (skip Bronze — saves ~5 min after first run)
 docker compose exec jupyter bash -c "RUN_BRONZE=false python -m bigdata_music.pipeline"
 
 # Gold only
@@ -148,33 +159,30 @@ docker compose exec jupyter bash -c "RUN_BRONZE=false RUN_SILVER=false python -m
 │   └── spark_ui/            # Generated performance charts
 ├── scripts/
 │   ├── download_data.py     # Data acquisition (Kaggle + HuggingFace)
-│   └── perf_charts.py       # Generate performance charts from perf_metrics.jsonl
+│   └── perf_charts.py       # Generate performance charts (run after pipeline)
 ├── notebooks/
-│   └── 99_perf_analysis.ipynb  # Same charts as perf_charts.py, in notebook form
+│   └── 99_perf_analysis.ipynb  # Same as perf_charts.py, in notebook form (Docker/Jupyter)
 ├── tests/                   # pytest — Silver and Gold unit tests
+├── data/
+│   ├── raw/countries.csv    # Committed — no download needed
+│   └── README.md            # Data provenance — MD5 hashes + source URLs
 ├── docker-compose.yml
-├── Makefile                 # All commands (make up / pipeline / test / charts)
-└── data/README.md           # Data provenance — MD5 hashes + source URLs
+├── Makefile                 # Shortcuts (see commands above)
+└── conf/catalog.yml         # All dataset paths and metadata
 ```
 
 ---
 
-## Local development (Windows, without Docker)
+## Troubleshooting
 
-Requires Python 3.10, Java 11+, and `C:\hadoop\winutils.exe` (see [steveloughran/winutils](https://github.com/steveloughran/winutils)).
+**`make pipeline` fails with "no such container"**  
+The `jupyter` service isn't ready yet. Run `docker compose ps` and wait until all containers show `running`, then retry.
 
-```powershell
-$env:DATA_ROOT  = "e:\Resonance\data"
-$env:PYTHONPATH = "e:\Resonance\src"
-$env:HADOOP_HOME = "C:\hadoop"
-pip install -e ".[dev]"
-python -m bigdata_music.pipeline
-```
+**Dashboard shows no data**  
+The pipeline hasn't run yet, or it failed. Run `make pipeline` and check for errors.
 
-Dashboard only (no Spark, no Java):
+**Port already in use**  
+Another service is using 8050, 5000, 8080, or 8888. Stop it or change the port in `docker-compose.yml`.
 
-```powershell
-$env:DATA_ROOT  = "e:\Resonance\data"
-$env:PYTHONPATH = "e:\Resonance\src"
-python dashboard/app.py
-```
+**Download fails: `kaggle.json` not found**  
+Follow Step 1b — the credentials file must be in the exact path listed.
