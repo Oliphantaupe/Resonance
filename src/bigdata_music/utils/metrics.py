@@ -20,7 +20,7 @@ from bigdata_music.utils.logging import get_logger
 
 log = get_logger(__name__)
 
-METRICS_FILE = Path(__file__).resolve().parents[4] / "reports" / "perf_metrics.jsonl"
+METRICS_FILE = Path(__file__).resolve().parents[3] / "reports" / "perf_metrics.jsonl"
 
 
 def _capture_spark_metrics(spark) -> dict:

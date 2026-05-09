@@ -1,0 +1,172 @@
+# Data Catalog — Kedro-inspired single source of truth for all datasets.
+#
+# Paths use DATA_ROOT as a base (default /data in Docker, set via DATA_ROOT env var).
+# All Delta tables are read with utils/delta_io.read_delta() on Windows due to
+# the NativeIO.Windows.access0 issue; standard spark.read.format("delta") on Linux/Docker.
+#
+# Usage: dataset paths mirror the constants in src/bigdata_music/config.py.
+# This file is documentation and can be loaded at runtime with catalog_loader.py.
+
+# ---------------------------------------------------------------------------
+# Raw (source of truth — never written by the pipeline)
+# ---------------------------------------------------------------------------
+
+charts_raw:
+  type: csv
+  path: "{DATA_ROOT}/raw/charts.csv"
+  schema: bigdata_music.schemas.CHARTS_RAW_SCHEMA
+  description: >
+    Spotify Charts 2017–2021. 26 M rows, ~3.3 GB.
+    Columns: title, rank, date, artist, url, region, chart, trend, streams.
+  source: "https://www.kaggle.com/datasets/dhruvildave/spotify-charts"
+  md5: a9fc40a65504bc6c551521d08cf050ba
+
+track_features_raw:
+  type: parquet
+  path: "{DATA_ROOT}/raw/track_features.parquet"
+  schema: bigdata_music.schemas.TRACK_FEATURES_RAW_SCHEMA
+  description: >
+    Spotify Tracks Dataset — audio features for ~1.2 M unique tracks. ~4.1 GB.
+    Columns: track_id, track_name, artist_name, valence, energy, danceability,
+    acousticness, instrumentalness, liveness, loudness, speechiness, tempo, key,
+    mode, time_signature, release_date.
+  source: "https://huggingface.co/datasets/GildasLeDrogoff/spotify-tracks-dataset"
+  md5: d547baf143b4a7fc16285e7668fdbea3
+
+countries_raw:
+  type: csv
+  path: "{DATA_ROOT}/raw/countries.csv"
+  schema: bigdata_music.schemas.COUNTRIES_RAW_SCHEMA
+  description: >
+    Hand-crafted country metadata (63 rows, <1 MB).
+    Columns: country_name, iso2, continent, world_bank_region.
+    Always broadcast in joins — never partitioned.
+  source: "World Bank / Wikipedia (hand-crafted, committed in repo)"
+  md5: 2f88117ab7495eb783869450b0af97d7
+
+# ---------------------------------------------------------------------------
+# Bronze (Delta Lake — raw data + ingestion_ts, no transformations)
+# ---------------------------------------------------------------------------
+
+bronze_charts:
+  type: delta
+  path: "{DATA_ROOT}/bronze/charts"
+  partition_by: [year]
+  description: >
+    Raw charts ingested to Delta. Adds ingestion_ts. Partitioned by year
+    (5 partitions ~700 MB each). Written with mode=PERMISSIVE + _corrupt_record.
+  rows: 26_173_514
+
+bronze_track_features:
+  type: delta
+  path: "{DATA_ROOT}/bronze/track_features"
+  partition_by: [release_decade]
+  description: >
+    Raw track features ingested to Delta. Partitioned by release_decade.
+  rows: 56_277_664
+
+bronze_countries:
+  type: delta
+  path: "{DATA_ROOT}/bronze/countries"
+  partition_by: []
+  description: >
+    63-row countries table. No partition (always broadcast in downstream joins).
+  rows: 68
+
+# ---------------------------------------------------------------------------
+# Silver (Delta Lake — cleaned, typed, deduplicated)
+# ---------------------------------------------------------------------------
+
+silver_charts_cleaned:
+  type: delta
+  path: "{DATA_ROOT}/silver/charts_cleaned"
+  partition_by: [region, year]
+  description: >
+    Cleaned charts: track_id extracted from URL, dates cast with multi-format
+    fallback, numeric columns cast, corrupt rows filtered (0.03% dropped),
+    duplicates removed via row_number() window, time columns added (year/month/week).
+  rows: 20_736_357
+  produced_by: bigdata_music.silver.clean_charts
+
+silver_tracks_cleaned:
+  type: delta
+  path: "{DATA_ROOT}/silver/tracks_cleaned"
+  partition_by: [release_decade]
+  description: >
+    Cleaned track features: audio features clamped to [0,1], mood_quadrant
+    derived via Russell's circumplex model (valence × energy). Track-level view.
+  rows: 39_283_820
+  produced_by: bigdata_music.silver.clean_features
+
+silver_countries:
+  type: delta
+  path: "{DATA_ROOT}/silver/countries"
+  partition_by: []
+  description: Cleaned countries: null rows dropped. 63 → 68 rows (68 including header artifacts removed).
+  rows: 68
+  produced_by: bigdata_music.silver.clean_countries
+
+silver_charts_enriched:
+  type: delta
+  path: "{DATA_ROOT}/silver/charts_enriched"
+  partition_by: [region, year]
+  description: >
+    Central joined table: charts × tracks (sort-merge join on track_id, pre-repartitioned
+    to 200 partitions each) × countries (broadcast join, ~0 shuffle bytes).
+    20.7 M rows, ~220 s to produce (AQE ON).
+  rows: 20_736_357
+  produced_by: bigdata_music.silver.join_enriched
+
+# ---------------------------------------------------------------------------
+# Gold (Delta Lake — aggregated, dashboard-ready)
+# ---------------------------------------------------------------------------
+
+gold_regional_mood_seasonal:
+  type: delta
+  path: "{DATA_ROOT}/gold/regional_mood_seasonal"
+  partition_by: []
+  description: >
+    Mood share per region × season. Powers Home / Choropleth page.
+    Key pattern: SUM OVER window for mood_share proportion.
+  dashboard_page: pages/home.py
+  produced_by: bigdata_music.gold.mood_seasonal
+
+gold_streak_analysis:
+  type: delta
+  path: "{DATA_ROOT}/gold/streak_analysis"
+  partition_by: []
+  description: >
+    Consecutive-charting streaks per track × region. Powers Streak Champions page.
+    Key pattern: gap-and-island via row_number() + date_sub().
+  dashboard_page: pages/streaks.py
+  produced_by: bigdata_music.gold.streaks
+
+gold_sonic_dna_by_rank_tier:
+  type: delta
+  path: "{DATA_ROOT}/gold/sonic_dna_by_rank_tier"
+  partition_by: []
+  description: >
+    Audio feature profiles bucketed into 10 rank deciles. Powers Sonic DNA page.
+    Key pattern: ntile(10) decile bucketing.
+  dashboard_page: pages/sonic_dna.py
+  produced_by: bigdata_music.gold.sonic_dna
+
+gold_track_longevity:
+  type: delta
+  path: "{DATA_ROOT}/gold/track_longevity"
+  partition_by: []
+  description: >
+    Track chart longevity and rolling audio feature averages by era. Powers Era Evolution page.
+    Key pattern: PERCENTILE_APPROX, rolling average.
+  dashboard_page: pages/longevity.py
+  produced_by: bigdata_music.gold.longevity
+
+gold_global_top_artists:
+  type: delta
+  path: "{DATA_ROOT}/gold/global_top_artists"
+  partition_by: []
+  description: >
+    Top artists by 90-day rolling stream count. Powers Top Artists page.
+    Key pattern: 90-day rolling SUM with rangeBetween, dense_rank().
+  dashboard_page: pages/top_artists.py
+  produced_by: bigdata_music.gold.top_artists

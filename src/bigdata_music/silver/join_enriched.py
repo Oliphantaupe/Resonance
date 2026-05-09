@@ -60,13 +60,13 @@ def build_charts_enriched(spark: SparkSession) -> int:
     ).drop(countries["country_name"])
 
     row_count = enriched.count()
-    log.info("Silver enriched: writing %d rows partitioned by (region, year, month) to %s",
+    log.info("Silver enriched: writing %d rows partitioned by (region, year) to %s",
              row_count, config.SILVER_CHARTS_ENRICHED)
 
     (
         enriched.write
         .format("delta")
-        .partitionBy("region", "year", "month")
+        .partitionBy("region", "year")
         .mode("overwrite")
         .save(config.SILVER_CHARTS_ENRICHED)
     )

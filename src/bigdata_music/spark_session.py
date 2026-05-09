@@ -32,6 +32,7 @@ def _base_builder(app_name: str) -> SparkSession.Builder:
         .config("spark.sql.parquet.enableVectorizedReader", "false")
         # Reduce log noise in notebook output
         .config("spark.ui.showConsoleProgress", "false")
+        .config("spark.driver.maxResultSize",  "4g")
     )
 
 
