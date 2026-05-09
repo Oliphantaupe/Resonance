@@ -2,7 +2,7 @@
 
 # --- Docker (primary workflow) ---
 up:
-	docker compose up -d spark-master spark-worker-1 jupyter dash mlflow
+	docker compose up -d jupyter dash mlflow
 
 down:
 	docker compose down

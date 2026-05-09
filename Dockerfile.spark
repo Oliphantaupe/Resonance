@@ -2,12 +2,13 @@ FROM jupyter/pyspark-notebook:spark-3.5.0
 
 USER root
 
-# Pre-download Delta Lake JARs into the Spark jars directory
-# delta-spark 3.2.0 is the latest compatible with Spark 3.5.x
-RUN wget -q -P /usr/local/spark/jars/ \
+# Pre-download Delta Lake JARs so the pipeline doesn't re-fetch them on every run
+RUN wget -q -P /usr/local/spark-3.5.0-bin-hadoop3/jars/ \
     https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.2.0/delta-spark_2.12-3.2.0.jar && \
-    wget -q -P /usr/local/spark/jars/ \
-    https://repo1.maven.org/maven2/io/delta/delta-storage/3.2.0/delta-storage-3.2.0.jar
+    wget -q -P /usr/local/spark-3.5.0-bin-hadoop3/jars/ \
+    https://repo1.maven.org/maven2/io/delta/delta-storage/3.2.0/delta-storage-3.2.0.jar && \
+    wget -q -P /usr/local/spark-3.5.0-bin-hadoop3/jars/ \
+    https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.9.3/antlr4-runtime-4.9.3.jar
 
 # Python deps
 COPY pyproject.toml /tmp/pyproject.toml
@@ -15,7 +16,7 @@ RUN pip install --no-cache-dir \
     delta-spark==3.2.0 \
     plotly==5.22.0 \
     pandas==2.2.2 \
-    pyarrow==16.1.0 \
+    "pyarrow>=15.0.2,<16" \
     deltalake==0.18.2 \
     pytest==8.2.2 \
     pytest-cov==5.0.0 \

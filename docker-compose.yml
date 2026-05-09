@@ -1,44 +1,17 @@
 services:
 
-  # ── Spark cluster ──────────────────────────────────────────────────
-  spark-master:
-    image: bitnami/spark:3.5
-    environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-    ports:
-      - "8080:8080"   # Spark Master UI
-      - "7077:7077"   # Spark master
-    volumes:
-      - ./data:/data
-      - ./src:/src
-
-  spark-worker-1:
-    image: bitnami/spark:3.5
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=4G
-      - SPARK_WORKER_CORES=2
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-    volumes:
-      - ./data:/data
-      - ./src:/src
-    depends_on:
-      - spark-master
-
-  # ── Jupyter (runs pipeline + notebooks) ───────────────────────────
+  # ── Jupyter + Spark (local mode) ──────────────────────────────────────────
+  # Runs the pipeline in local[*] mode — no separate cluster needed.
+  # Spark Application UI is available at http://localhost:4040 while running.
   jupyter:
     build:
       context: .
       dockerfile: Dockerfile.spark
     ports:
-      - "8888:8888"   # Jupyter
-      - "4040:4040"   # Spark application UI
+      - "8888:8888"   # Jupyter Lab
+      - "4040:4040"   # Spark Application UI (active while pipeline runs)
     environment:
-      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_MASTER_URL=local[*]
       - DATA_ROOT=/data
       - JUPYTER_ENABLE_LAB=yes
       - PYTHONPATH=/src
@@ -48,22 +21,15 @@ services:
       - ./src:/src
       - ./notebooks:/home/jovyan/notebooks
       - ./reports:/home/jovyan/reports
+      - ./conf:/home/jovyan/conf
     depends_on:
-      - spark-master
       - mlflow
-    command: >
-      start-notebook.sh
-      --NotebookApp.token=''
-      --NotebookApp.password=''
 
-  # ── MLflow tracking server ─────────────────────────────────────────
+  # ── MLflow tracking server ─────────────────────────────────────────────────
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.13.0
     ports:
       - "5000:5000"
-    environment:
-      - MLFLOW_BACKEND_STORE_URI=sqlite:////mlflow/mlflow.db
-      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
     volumes:
       - ./mlflow:/mlflow
     command: >
@@ -73,7 +39,7 @@ services:
       --backend-store-uri sqlite:////mlflow/mlflow.db
       --default-artifact-root /mlflow/artifacts
 
-  # ── Plotly Dash dashboard ──────────────────────────────────────────
+  # ── Plotly Dash dashboard ──────────────────────────────────────────────────
   dash:
     build:
       context: .
@@ -87,7 +53,7 @@ services:
       - ./data:/data
       - ./dashboard:/app/dashboard
 
-  # ── Kafka + Zookeeper — dormant until Part 4 (Streaming) ──────────
+  # ── Kafka + Zookeeper — dormant until Part 4 (Streaming) ──────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:

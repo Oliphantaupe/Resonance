@@ -54,10 +54,10 @@ make up
 
 **Windows without `make`:**
 ```bash
-docker compose up -d spark-master spark-worker-1 jupyter dash mlflow
+docker compose up -d jupyter dash mlflow
 ```
 
-Pulls images and builds containers on first run (~3–5 min). Wait until all services are healthy:
+Pulls images and builds the Jupyter container on first run (~3–5 min). Wait until all services are healthy:
 
 ```bash
 docker compose ps   # all should show "running"
@@ -86,7 +86,6 @@ Runs Bronze → Silver → Gold inside the Jupyter container. Takes **~10–15 m
 |---|---|
 | **http://localhost:8050** | Plotly Dash dashboard (5 pages) |
 | **http://localhost:5000** | MLflow — run history, metrics, params |
-| **http://localhost:8080** | Spark Master UI |
 | **http://localhost:4040** | Spark Application UI *(only while pipeline runs)* |
 | **http://localhost:8888** | Jupyter Lab |
 

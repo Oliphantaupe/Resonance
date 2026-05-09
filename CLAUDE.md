@@ -48,7 +48,7 @@ make test        # run pytest inside jupyter container
 make mlflow-ui   # start MLflow at http://localhost:5000
 ```
 
-Services: `spark-master` (8080), `spark-worker-1`, `jupyter` (8888 / Spark UI 4040), `dash` (8050), `mlflow` (5000). Kafka/Zookeeper are dormant (streaming profile only).
+Services: `jupyter` (8888 / Spark UI 4040, runs pipeline in `local[*]` mode), `dash` (8050), `mlflow` (5000). Kafka/Zookeeper are dormant (streaming profile only). The former `bitnami/spark` cluster was removed — it was pulled from Docker Hub.
 
 ### Dashboard
 
