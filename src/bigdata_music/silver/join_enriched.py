@@ -12,6 +12,7 @@ Join strategy:
 # regardless of Spark's stats-based auto-broadcast threshold. AA4 Experiment 2
 # measures the shuffle-byte reduction this provides.
 """
+from pyspark import StorageLevel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import broadcast, col
 
@@ -59,6 +60,7 @@ def build_charts_enriched(spark: SparkSession) -> int:
         how="left",
     ).drop(countries["country_name"])
 
+    enriched = enriched.persist(StorageLevel.MEMORY_AND_DISK)
     row_count = enriched.count()
     log.info("Silver enriched: writing %d rows partitioned by (region, year) to %s",
              row_count, config.SILVER_CHARTS_ENRICHED)
@@ -71,5 +73,6 @@ def build_charts_enriched(spark: SparkSession) -> int:
         .save(config.SILVER_CHARTS_ENRICHED)
     )
 
+    enriched.unpersist()
     log.info("Silver enriched: write complete")
     return row_count

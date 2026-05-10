@@ -33,6 +33,8 @@ def _base_builder(app_name: str) -> SparkSession.Builder:
         # Reduce log noise in notebook output
         .config("spark.ui.showConsoleProgress", "false")
         .config("spark.driver.maxResultSize",  "4g")
+        .config("spark.memory.fraction",       "0.8")
+        .config("spark.sql.adaptive.advisoryPartitionSizeInBytes", "134217728")
     )
 
 

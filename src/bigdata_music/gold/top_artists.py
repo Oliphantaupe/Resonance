@@ -85,6 +85,7 @@ def build_top_artists(spark: SparkSession) -> int:
 
     result = result.join(artist_audio, on="artist", how="left")
 
+    result = result.coalesce(4).cache()
     row_count = result.count()
     log.info("Gold top_artists: writing %d rows to %s", row_count, config.GOLD_TOP_ARTISTS)
 
@@ -95,5 +96,6 @@ def build_top_artists(spark: SparkSession) -> int:
         .save(config.GOLD_TOP_ARTISTS)
     )
 
+    result.unpersist()
     log.info("Gold top_artists: write complete")
     return row_count

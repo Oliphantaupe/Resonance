@@ -63,6 +63,7 @@ def build_regional_mood_seasonal(spark: SparkSession) -> int:
         col("total_streams") / _sum("total_streams").over(w_season),
     )
 
+    result = result.coalesce(4).cache()
     row_count = result.count()
     log.info("Gold mood_seasonal: writing %d rows to %s", row_count, config.GOLD_REGIONAL_MOOD)
 
@@ -73,5 +74,6 @@ def build_regional_mood_seasonal(spark: SparkSession) -> int:
         .save(config.GOLD_REGIONAL_MOOD)
     )
 
+    result.unpersist()
     log.info("Gold mood_seasonal: write complete")
     return row_count

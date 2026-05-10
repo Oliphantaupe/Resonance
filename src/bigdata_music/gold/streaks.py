@@ -69,6 +69,7 @@ def build_streak_analysis(spark: SparkSession) -> int:
         )
     )
 
+    streaks = streaks.coalesce(4).cache()
     row_count = streaks.count()
     log.info("Gold streaks: writing %d streak records to %s", row_count, config.GOLD_STREAK_ANALYSIS)
 
@@ -79,5 +80,6 @@ def build_streak_analysis(spark: SparkSession) -> int:
         .save(config.GOLD_STREAK_ANALYSIS)
     )
 
+    streaks.unpersist()
     log.info("Gold streaks: write complete")
     return row_count

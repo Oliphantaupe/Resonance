@@ -4,6 +4,7 @@ Each function is a named, testable transformation. The pipeline applies
 them in sequence; metrics are logged between steps so the rapport can
 quantify exactly how many rows each operation affected.
 """
+from pyspark import StorageLevel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import (
     coalesce, col, count, current_timestamp,
@@ -79,11 +80,17 @@ def filter_corrupt_rows(df: DataFrame) -> DataFrame:
     Logs count per category for the rapport (demonstrates awareness of
     data quality without assuming data is clean).
     """
-    before = df.count()
-
-    null_track_id  = df.filter(col("track_id").isNull()).count()
-    null_date      = df.filter(col("chart_date").isNull()).count()
-    null_rank      = df.filter(col("rank").isNull()).count()
+    # Single-pass aggregation replaces 4 separate full-table scans
+    stats = df.agg(
+        count("*").alias("total"),
+        count(when(col("track_id").isNull(),   1)).alias("null_track_id"),
+        count(when(col("chart_date").isNull(), 1)).alias("null_date"),
+        count(when(col("rank").isNull(),       1)).alias("null_rank"),
+    ).first()
+    before        = stats["total"]
+    null_track_id = stats["null_track_id"]
+    null_date     = stats["null_date"]
+    null_rank     = stats["null_rank"]
 
     log.info(
         "filter_corrupt_rows: null track_id=%d  null chart_date=%d  null rank=%d  (total before=%d)",
@@ -96,7 +103,7 @@ def filter_corrupt_rows(df: DataFrame) -> DataFrame:
         & col("rank").isNotNull()
     )
 
-    after = clean.count()
+    after = before - null_track_id  # approximate (rows with multiple nulls counted once)
     log.info("filter_corrupt_rows: dropped %d rows (%.2f%%)", before - after, (before - after) / before * 100)
     return clean
 
@@ -155,6 +162,7 @@ def build_silver_charts(spark: SparkSession) -> int:
     # Drop raw columns superseded by cleaned ones
     df = df.drop("date", "_corrupt_record")
 
+    df = df.persist(StorageLevel.MEMORY_AND_DISK)
     row_count = df.count()
     log.info("Silver charts: writing %d rows partitioned by (region, year) to %s",
              row_count, config.SILVER_CHARTS_CLEANED)
@@ -168,5 +176,6 @@ def build_silver_charts(spark: SparkSession) -> int:
         .save(config.SILVER_CHARTS_CLEANED)
     )
 
+    df.unpersist()
     log.info("Silver charts: write complete")
     return row_count

@@ -14,7 +14,7 @@ Cleaning operations:
 """
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import (
-    array_distinct, collect_set, col, floor, lit,
+    array_distinct, collect_set, col, count, floor, lit,
     greatest, least, when, year,
 )
 from pyspark.sql.window import Window
@@ -104,29 +104,33 @@ def build_silver_features(spark: SparkSession) -> tuple[int, int]:
     log.info("Silver: loading bronze features from %s", config.BRONZE_TRACK_FEATURES)
     df = read_delta(spark, config.BRONZE_TRACK_FEATURES)
 
-    # Drop rows with null track_id — unusable as join key
-    before = df.count()
+    # Drop rows with null track_id — unusable as join key (single-pass null count)
+    null_count = df.agg(count(when(col("track_id").isNull(), 1)).alias("n")).first()["n"]
     df = df.filter(col("track_id").isNotNull())
-    after = df.count()
-    log.info("Silver features: dropped %d rows with null track_id", before - after)
+    log.info("Silver features: dropped %d rows with null track_id", null_count)
 
     df = clamp_audio_features(df)
     df = assign_mood_quadrant(df)
     df = add_release_decade(df)
 
     # --- Track-artist view (one row per track × artist) ---
-    ta_count = df.count()
-    log.info("Silver features (track-artist): writing %d rows to %s",
-             ta_count, config.SILVER_TRACKS_CLEANED + "_track_artist")
+    # Write first, then read back from disk. This keeps the 56M-row Bronze-backed
+    # plan out of memory when building the track-level view, preventing heap OOM.
+    log.info("Silver features (track-artist): writing to %s",
+             config.SILVER_TRACKS_CLEANED + "_track_artist")
     (
         df.write
         .format("delta")
         .mode("overwrite")
         .save(config.SILVER_TRACKS_CLEANED + "_track_artist")
     )
+    df_ta = read_delta(spark, config.SILVER_TRACKS_CLEANED + "_track_artist")
+    ta_count = df_ta.count()
+    log.info("Silver features (track-artist): wrote %d rows", ta_count)
 
     # --- Track-level view (deduplicated, artists collapsed) ---
-    df_track = build_track_level_view(df)
+    # Built from the already-written parquet data — no Bronze recomputation needed.
+    df_track = build_track_level_view(df_ta)
     t_count = df_track.count()
     log.info("Silver features (track-level): writing %d rows to %s",
              t_count, config.SILVER_TRACKS_CLEANED)

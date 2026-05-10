@@ -99,6 +99,7 @@ def build_sonic_dna(spark: SparkSession) -> int:
         .orderBy("stream_decile")
     )
 
+    result = result.coalesce(4).cache()
     row_count = result.count()
     log.info("Gold sonic_dna: writing %d rows (10 decile tiers) to %s",
              row_count, config.GOLD_SONIC_DNA)
@@ -110,5 +111,6 @@ def build_sonic_dna(spark: SparkSession) -> int:
         .save(config.GOLD_SONIC_DNA)
     )
 
+    result.unpersist()
     log.info("Gold sonic_dna: write complete")
     return row_count

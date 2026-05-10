@@ -78,6 +78,7 @@ def build_track_longevity(spark: SparkSession) -> int:
         how="left",
     )
 
+    result = result.coalesce(4).cache()
     row_count = result.count()
     log.info("Gold longevity: writing %d rows to %s", row_count, config.GOLD_TRACK_LONGEVITY)
 
@@ -88,5 +89,6 @@ def build_track_longevity(spark: SparkSession) -> int:
         .save(config.GOLD_TRACK_LONGEVITY)
     )
 
+    result.unpersist()
     log.info("Gold longevity: write complete")
     return row_count
