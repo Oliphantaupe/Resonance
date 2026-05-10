@@ -17,7 +17,7 @@ Medallion pipeline (Bronze → Silver → Gold) over 26 million Spotify chart en
 
 ## Step 1 — Get the data
 
-The raw datasets are not included in the repo (~7.4 GB total). Download them once before running anything. `countries.csv` is already in the repo — no download needed for that one.
+The raw datasets are not included in the repo (~7.4 GB total). Download them once before running anything. `countries.csv` is not on Kaggle or HuggingFace — download it from [Google Drive](https://drive.google.com/file/d/1zJRo3bwBxV7f87D0kyqs7GBOb-jf5o7k/view?usp=sharing) and place it at `data/raw/countries.csv`.
 
 ### 1a — Install download dependencies
 
@@ -164,7 +164,7 @@ docker compose exec jupyter bash -c "RUN_BRONZE=false RUN_SILVER=false python -m
 │   └── 99_perf_analysis.ipynb  # Same as perf_charts.py, in notebook form (Docker/Jupyter)
 ├── tests/                   # pytest — Silver and Gold unit tests
 ├── data/
-│   ├── raw/countries.csv    # Committed — no download needed
+│   └── raw/                 # Not in repo — see Step 1 above
 │   └── README.md            # Data provenance — MD5 hashes + source URLs
 ├── docker-compose.yml
 └── Makefile                 # Shortcuts (see commands above)
