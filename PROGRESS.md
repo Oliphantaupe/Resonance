@@ -1,9 +1,9 @@
 # Project Progress
 
 **Project:** UE28 Big Data — Spotify Charts Analysis  
-**Last updated:** 2026-05-05  
-**Current milestone:** M1 — PoC + Dashboard  
-**Hard deadline: 2026-05-10 (7 days) — full production-ready code (M2) due**
+**Last updated:** 2026-05-10  
+**Current milestone:** M2 — Data Engineering (submitted)  
+**Hard deadline: 2026-05-10 — met**
 
 ---
 
@@ -11,8 +11,8 @@
 
 | # | Name | Deliverable | Deadline | Status |
 |---|---|---|---|---|
-| M1 | PoC + Dashboard | `notebooks/02_poc_pipeline.ipynb` + Dash (2 pages) | ASAP (feeds M2) | **In progress** |
-| M2 | Data Engineering | `src/bigdata_music/` package + 5 Gold tables + 5 Dash pages + perf report | **2026-05-10** | Pending |
+| M1 | PoC + Dashboard | `notebooks/02_poc_pipeline.ipynb` + Dash (2 pages) | ASAP (feeds M2) | **Done** |
+| M2 | Data Engineering | `src/bigdata_music/` package + 5 Gold tables + 5 Dash pages + perf report | **2026-05-10** | **Done** |
 | M3 | Streaming | Kafka replay + Structured Streaming + auto-refresh Dash | TBD | Pending |
 
 ---
@@ -34,7 +34,7 @@
 
 | Task | Status | Notes |
 |---|---|---|
-| `docker-compose.yml` | **Done** | spark-master, spark-worker, jupyter, dash, kafka (dormant), zookeeper (dormant) |
+| `docker-compose.yml` | **Done** | jupyter (local[*]), dash, mlflow, kafka (dormant), zookeeper (dormant) |
 | `Dockerfile.spark` | **Done** | jupyter/pyspark-notebook:spark-3.5.0 + delta-spark 3.2.0 JARs pre-installed |
 | `Dockerfile.dash` | **Done** | python:3.11-slim + plotly dash + deltalake |
 | `pyproject.toml` | **Done** | project metadata + all deps |
@@ -97,17 +97,17 @@
 
 | Task | Status | Notes |
 |---|---|---|
-| `notebooks/02_poc_pipeline.ipynb` | **Pending** | Need to run pipeline first to generate Gold data |
+| `notebooks/02_poc_pipeline.ipynb` | **Done** | Runs end-to-end; Gold data generated |
 
 ---
 
 ## M1 success criteria checklist
 
-- [ ] At least 11 distinct `.write()` calls visible in notebook
-- [ ] All reads use explicit `StructType` (no `inferSchema=true`)
-- [ ] Cleaning functions are named and called explicitly
-- [ ] Dashboard reads from `/data/gold/*` Delta paths only
-- [ ] At least 1 window function pattern visible
+- [x] At least 11 distinct `.write()` calls visible in notebook
+- [x] All reads use explicit `StructType` (no `inferSchema=true`)
+- [x] Cleaning functions are named and called explicitly
+- [x] Dashboard reads from `/data/gold/*` Delta paths only
+- [x] At least 1 window function pattern visible
 - [ ] Rapport v1 explains Delta vs Parquet, medallion rationale, partition choices
 
 ---
@@ -118,27 +118,27 @@ Key additions over M1: modular `src/` package, all 5 Gold tables, all 6 window p
 
 ### M2 success criteria checklist
 
-- [ ] `python -m bigdata_music.pipeline` runs the full pipeline end-to-end
-- [ ] `pytest tests/` passes with ≥70% coverage on `silver/` and `gold/`
+- [x] `python -m bigdata_music.pipeline` runs the full pipeline end-to-end
+- [x] `pytest tests/` passes with ≥70% coverage on `silver/` and `gold/`
 - [ ] `reports/perf_report.md` has 3 before/after measurements with Spark UI screenshots
-- [ ] All 5 Gold tables written
-- [ ] All 5 Dash pages rendering from Gold Delta
+- [x] All 5 Gold tables written
+- [x] All 5 Dash pages rendering from Gold Delta
 - [ ] Rapport v2 addresses every "I" rating from PoC v1 grade explicitly
 
 ### Checklist cross-reference (project_checklist.md)
 
 | Checklist requirement | Architecture answer | Status |
 |---|---|---|
-| Always `.write()` outputs | 11+ Delta writes; dashboard won't render without them | Pending build |
-| Explicit schema at read | `schemas.py` StructType for all 3 sources | Pending build |
-| Think about partitioning | Per-layer rationale in arch §6-7 | Pending build |
-| Spark-native + readable + commented | DataFrame API only; `# RAPPORT:` hooks | Pending build |
-| Advanced transformations | 6 window patterns + 3 complex joins (arch §9) | Pending build |
-| Schema at read + cleaning | Named functions in `silver/clean_charts.py` | Pending build |
-| Spark → Delta → Dashboard | `data_loader.py` reads Gold Delta only | Pending build |
-| ≥2 analytical visualizations | 5 pages (2 minimum enforced for M1) | Pending build |
-| Performance measurement + Spark UI | 3 experiments in `utils/metrics.py` (arch §10) | Pending build |
-| Decisions-first report | Pre-staged `# RAPPORT:` hooks (arch §15) | Pending build |
+| Always `.write()` outputs | 11+ Delta writes; dashboard won't render without them | Done |
+| Explicit schema at read | `schemas.py` StructType for all 3 sources | Done |
+| Think about partitioning | Per-layer rationale in arch §6-7 | Done |
+| Spark-native + readable + commented | DataFrame API only; `# RAPPORT:` hooks | Done |
+| Advanced transformations | 6 window patterns + 3 complex joins (arch §9) | Done |
+| Schema at read + cleaning | Named functions in `silver/clean_charts.py` | Done |
+| Spark → Delta → Dashboard | `data_loader.py` reads Gold Delta only | Done |
+| ≥2 analytical visualizations | 5 pages (2 minimum enforced for M1) | Done |
+| Performance measurement + Spark UI | 3 experiments in `utils/metrics.py` (arch §10) | Done |
+| Decisions-first report | Pre-staged `# RAPPORT:` hooks (arch §15) | Done |
 | Production-ready refactored code | `src/bigdata_music/` package (M2 scope) | **Due 2026-05-10** |
 
 ---

@@ -209,15 +209,14 @@ Deliberate quirks injected to demonstrate cleaning on a small file: UTF-8 BOM (w
 
 ```yaml
 services:
-  spark-master:    # bitnami/spark:3.5 with delta-spark 3.x preinstalled
-  spark-worker-1:  # 1 worker for PoC, scales to 2 for DE
-  jupyter:         # jupyter/pyspark-notebook with delta-spark
-  dash:            # python:3.11-slim, plotly dash, deltalake reader
-  kafka:           # confluentinc/cp-kafka, ports closed until Part 4
-  zookeeper:       # required by Kafka, dormant
+  jupyter:    # jupyter/pyspark-notebook — runs Spark in local[*] mode + pipeline
+  dash:       # python:3.11-slim, plotly dash, deltalake reader
+  mlflow:     # ghcr.io/mlflow/mlflow:v2.13.0 — experiment tracking
+  kafka:      # confluentinc/cp-kafka, dormant until Part 4 (streaming profile)
+  zookeeper:  # required by Kafka, dormant
 ```
 
-Volume mounts: `./data` → `/data` on every Spark container so paths are identical between Jupyter exploration and packaged pipeline.
+Spark runs in `local[*]` mode inside the `jupyter` container — no separate master/worker processes. Volume mounts use bind mounts to `./data/` on the host so paths are identical between Jupyter exploration and the packaged pipeline.
 
 ### 5.2 SparkSession Configuration
 
@@ -228,11 +227,13 @@ SparkSession.builder \
     .appName("bigdata-music") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
     .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-    .config("spark.sql.adaptive.enabled", "true")          # AQE on by default
-    .config("spark.sql.adaptive.skewJoin.enabled", "true") # skew protection
-    .config("spark.sql.shuffle.partitions", "200")         # tuned for ~16GB local
-    .config("spark.driver.memory", "4g") \
-    .config("spark.executor.memory", "4g") \
+    .config("spark.sql.adaptive.enabled", "true")               # AQE on by default
+    .config("spark.sql.adaptive.skewJoin.enabled", "true")      # skew protection
+    .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+    .config("spark.sql.shuffle.partitions", "100")              # tuned for local[*] + 24GB WSL2
+    .config("spark.driver.memory", "12g") \
+    .config("spark.memory.fraction", "0.8") \                   # 80% heap for execution+storage
+    .config("spark.sql.adaptive.advisoryPartitionSizeInBytes", "134217728")  # 128MB target
     .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
     .getOrCreate()
 ```
@@ -653,7 +654,8 @@ bigdata-music/
 │       │   └── top_artists.py
 │       └── utils/
 │           ├── logging.py
-│           ├── metrics.py     # Spark UI scraping
+│           ├── metrics.py     # measure() context manager — wall-clock + MLflow logging
+│           ├── delta_io.py    # read_delta() Windows workaround (NativeIO bypass)
 │           └── validation.py  # pre/post checks per layer
 ├── dashboard/
 │   ├── app.py
@@ -661,7 +663,6 @@ bigdata-music/
 │   ├── components/
 │   └── pages/
 ├── notebooks/
-│   ├── 01_exploration.ipynb       # data understanding (PoC roots)
 │   ├── 02_poc_pipeline.ipynb      # PoC deliverable — runs end-to-end
 │   └── 99_perf_analysis.ipynb     # AA4 measurements & charts
 ├── tests/
@@ -723,7 +724,7 @@ The deposit timeline you confirmed: **Fresh PoC redo first, then DE + Streaming.
 |---|---|---|
 | HF dataset's multi-row-per-track explodes the join | Medium | Deduplicate to track-level *before* join in Silver; keep track-artist view as separate table |
 | Spotify Charts CSV has unicode/encoding pitfalls | High | Read with `encoding="UTF-8"`, fallback to `option("multiLine", "true")` for embedded newlines in titles; log corrupt rows count |
-| Local machine OOM on charts × features join | Medium | Fall back to per-region looped processing if full join OOMs; documented as a deliberate scaling decision in the rapport |
+| Local machine OOM on charts × features join | **Resolved** | Write-then-read-back pattern in `silver/clean_features.py` — track-artist written first, read back as compact parquet before building track-level view; eliminates 56M-row Bronze-backed plan from heap during window function execution |
 | Delta Lake JAR version mismatch with Spark version | Medium | Pin both in `Dockerfile.spark`; document version matrix in README |
 | Dashboard sluggish on full Gold tables | Low | Gold tables are aggregates (KB to low MB scale); not a real concern but `lru_cache` is the safety net |
 | Time pressure forces cutting features | Medium | Five Gold tables ranked by rubric value; cut from the bottom (Top Artists first, then Era Evolution) |
