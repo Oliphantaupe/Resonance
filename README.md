@@ -76,7 +76,7 @@ make pipeline
 docker compose exec jupyter python -m bigdata_music.pipeline
 ```
 
-Runs Bronze → Silver → Gold inside the Jupyter container. Takes **~10–15 minutes**. When done you'll see `Pipeline complete` in the terminal.
+Runs Bronze → Silver → Gold inside the Jupyter container. Takes **~55 minutes** on first run. When done you'll see `Pipeline complete` in the terminal.
 
 ---
 
@@ -154,6 +154,7 @@ docker compose exec jupyter bash -c "RUN_BRONZE=false RUN_SILVER=false python -m
 ├── dashboard/               # Plotly Dash app (reads Gold Delta tables only)
 ├── conf/catalog.yml         # Kedro-style Data Catalog — all 13 datasets
 ├── reports/
+│   ├── de_report.md         # M2 Data Engineering report (MLflow, tests, MLOps tools)
 │   ├── perf_report.md       # AA4 performance analysis (3 experiments)
 │   └── spark_ui/            # Generated performance charts
 ├── scripts/
@@ -166,8 +167,7 @@ docker compose exec jupyter bash -c "RUN_BRONZE=false RUN_SILVER=false python -m
 │   ├── raw/countries.csv    # Committed — no download needed
 │   └── README.md            # Data provenance — MD5 hashes + source URLs
 ├── docker-compose.yml
-├── Makefile                 # Shortcuts (see commands above)
-└── conf/catalog.yml         # All dataset paths and metadata
+└── Makefile                 # Shortcuts (see commands above)
 ```
 
 ---
