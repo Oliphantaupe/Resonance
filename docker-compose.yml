@@ -20,6 +20,7 @@ services:
       - SPARK_DRIVER_MEMORY=12g
       - SPARK_SHUFFLE_PARTITIONS=100
       - SPARK_OPTS=
+      - SPARK_LOCAL_IP=127.0.0.1
     volumes:
       # Source / config — bind mounts (small, code only)
       - ./src:/src
@@ -31,6 +32,9 @@ services:
       - ./data/bronze:/data/bronze
       - ./data/silver:/data/silver
       - ./data/gold:/data/gold
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     depends_on:
       - mlflow
 

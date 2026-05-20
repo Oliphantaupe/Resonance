@@ -45,15 +45,19 @@ def download_hf():
 
 
 def download_kaggle():
-    # Check credentials
-    cred = Path.home() / ".kaggle" / "kaggle.json"
-    if not cred.exists():
+    # Check credentials — accept kaggle.json (classic) or access_token (new token format)
+    kaggle_dir = Path.home() / ".kaggle"
+    has_json  = (kaggle_dir / "kaggle.json").exists()
+    has_token = (kaggle_dir / "access_token").exists()
+    has_env   = bool(os.environ.get("KAGGLE_API_TOKEN") or
+                     (os.environ.get("KAGGLE_USERNAME") and os.environ.get("KAGGLE_KEY")))
+    if not (has_json or has_token or has_env):
         print(
             "\n[kaggle] ERROR: No Kaggle credentials found.\n"
-            "  1. Create a Kaggle account at https://www.kaggle.com\n"
-            "  2. Go to Account → API → Create New Token → downloads kaggle.json\n"
-            f"  3. Move it to: {cred}\n"
-            "  4. Run this script again: python scripts/download_data.py --source kaggle\n"
+            "  Option A (new token):  save token to ~/.kaggle/access_token\n"
+            "  Option B (classic):    place kaggle.json at ~/.kaggle/kaggle.json\n"
+            "  Option C (env var):    export KAGGLE_API_TOKEN=<token>\n"
+            "  Then run: python scripts/download_data.py --source kaggle\n"
         )
         sys.exit(1)
 
@@ -68,15 +72,21 @@ def download_kaggle():
         return
 
     print("[kaggle] Downloading dhruvildave/spotify-charts (~3.5 GB) ...")
+    import shutil
     import subprocess
+    env = os.environ.copy()
+    if has_token and not has_env:
+        env["KAGGLE_API_TOKEN"] = (kaggle_dir / "access_token").read_text().strip()
+    kaggle_bin = shutil.which("kaggle") or str(Path.home() / ".local" / "bin" / "kaggle")
     result = subprocess.run(
         [
-            sys.executable, "-m", "kaggle", "datasets", "download",
+            kaggle_bin, "datasets", "download",
             "-d", "dhruvildave/spotify-charts",
             "--unzip",
             "-p", str(RAW),
         ],
         check=True,
+        env=env,
     )
     # The unzipped file is named 'charts.csv'
     downloaded = RAW / "charts.csv"
