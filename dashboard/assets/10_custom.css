@@ -391,3 +391,20 @@ label.control-label, .dbc label { color: var(--res-text-secondary) !important; f
 /* Bootstrap overrides */
 .container-fluid { padding: 0 !important; }
 .row { margin: 0 !important; }
+
+/* ── Submit page — number/date input cleanup ─────────────────────────── */
+input[type=number].res-no-spin::-webkit-inner-spin-button,
+input[type=number].res-no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number].res-no-spin { -moz-appearance: textfield; }
+input[type=date] { color-scheme: dark; }
+input[type=date]::-webkit-calendar-picker-indicator {
+  filter: invert(0.55) brightness(1.2); cursor: pointer; opacity: 0.7;
+}
+input[type=date]::-webkit-inner-spin-button { display: none; }
+
+/* ── Submit page — recent-submissions row animation ──────────────────── */
+.res-recent-new { animation: res-flash .9s ease-out; }
+@keyframes res-flash {
+  0%   { background: rgba(110,91,255,0.18); }
+  100% { background: transparent; }
+}

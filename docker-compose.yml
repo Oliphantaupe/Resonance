@@ -21,9 +21,11 @@ services:
       - SPARK_SHUFFLE_PARTITIONS=100
       - SPARK_OPTS=
       - SPARK_LOCAL_IP=127.0.0.1
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     volumes:
       # Source / config — bind mounts (small, code only)
       - ./src:/src
+      - ./tests:/src/tests
       - ./notebooks:/home/jovyan/notebooks
       - ./reports:/home/jovyan/reports
       - ./conf:/home/jovyan/conf
@@ -62,6 +64,7 @@ services:
     environment:
       - DATA_ROOT=/data
       - PYTHONPATH=/app
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     volumes:
       - ./dashboard:/app/dashboard
       - ./data/gold:/data/gold:ro
@@ -91,3 +94,54 @@ services:
     profiles:
       - streaming
 
+  # ── Streaming producer — replays charts.csv into Kafka ────────────────────
+  kafka-producer:
+    image: python:3.11-slim
+    # Kafka wait is handled inside run_producer.py (_wait_for_kafka retry loop)
+    command: >
+      sh -c "pip install --quiet kafka-python pandas &&
+             python /scripts/run_producer.py --delay 0.3 --days 30"
+    volumes:
+      - ./scripts:/scripts
+      - ./src:/src
+      - ./data/raw:/data/raw:ro
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONPATH=/src
+    depends_on:
+      - kafka
+    profiles:
+      - streaming
+
+  # ── Streaming consumer — Spark Structured Streaming → Delta ───────────────
+  kafka-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    user: root
+    command: python /scripts/run_consumer.py
+    volumes:
+      - ./scripts:/scripts
+      - ./src:/src
+      - ./reports:/home/jovyan/reports
+      - ./data:/data
+      - ivy-cache:/root/.ivy2
+    environment:
+      - DATA_ROOT=/data
+      - PYTHONPATH=/src
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - SPARK_DRIVER_MEMORY=4g
+      - SPARK_LOCAL_IP=127.0.0.1
+      - REPORTS_DIR=/home/jovyan/reports
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      - kafka
+      - mlflow
+    profiles:
+      - streaming
+
+volumes:
+  ivy-cache:   # persists Kafka Spark SQL JARs between consumer restarts

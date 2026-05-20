@@ -11,6 +11,7 @@ from bigdata_music import config
 _DELTA_EXTENSIONS  = "io.delta.sql.DeltaSparkSessionExtension"
 _DELTA_CATALOG     = "org.apache.spark.sql.delta.catalog.DeltaCatalog"
 _DELTA_PACKAGE     = "io.delta:delta-spark_2.12:3.2.0"
+_KAFKA_PACKAGE     = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0"
 
 
 def _base_builder(app_name: str) -> SparkSession.Builder:
@@ -54,5 +55,26 @@ def get_spark_no_aqe(app_name: str = "bigdata-music-no-aqe") -> SparkSession:
     return (
         _base_builder(app_name)
         .config("spark.sql.adaptive.enabled", "false")
+        .getOrCreate()
+    )
+
+
+def get_spark_streaming(app_name: str = "bigdata-music-streaming") -> SparkSession:
+    """Streaming session — adds Kafka SQL package alongside Delta.
+
+    Kept separate from get_spark() so the batch pipeline does not pay the
+    Kafka JAR download cost on every run.
+    Downloads spark-sql-kafka JARs on first start via Ivy (~50 MB, cached
+    in ~/.ivy2 between restarts).
+    """
+    return (
+        _base_builder(app_name)
+        .config("spark.jars.packages",
+                f"{_DELTA_PACKAGE},{_KAFKA_PACKAGE}")
+        .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.sql.adaptive.skewJoin.enabled", "true")
+        .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        # Reduce micro-batch overhead in local mode
+        .config("spark.sql.shuffle.partitions", "10")
         .getOrCreate()
     )

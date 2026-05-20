@@ -1,13 +1,12 @@
-"""Top Artists — rolling popularity + sonic fingerprint."""
+"""Top Artists — rolling popularity + sonic fingerprint + live streaming feed."""
 import dash
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from dash import Input, Output, callback, dcc, html
 
 from dashboard.components.cards import chart_card, chip, kpi_card, section_header
 from dashboard.components.shell import page_hero, topbar
-from dashboard.data_loader import load_gold
+from dashboard.data_loader import GOLD, available_tables, load_gold
 from dashboard.theme import ACCENT, ACCENT_S, CHART_COLORS, hex_alpha
 
 dash.register_page(__name__, path="/artists", title="Top Artists")
@@ -17,6 +16,9 @@ AUDIO_LABELS = [d.title() for d in AUDIO_DIMS]
 
 # ── Layout ────────────────────────────────────────────────────────────
 layout = html.Div([
+    # Auto-refresh interval — updates the live streaming section every 30 s
+    dcc.Interval(id="streaming-interval", interval=30_000, n_intervals=0),
+
     topbar("Top Artists", controls=[
         dcc.Dropdown(
             id="artist-year",
@@ -59,6 +61,9 @@ layout = html.Div([
         chart_card("Rolling 90-day streams",
                    dcc.Graph(id="artist-rolling", style={"height": "320px"}),
                    meta="Avg rolling 90-day streams per artist · by month"),
+
+        # Live streaming section — populated by dcc.Interval callback
+        html.Div(id="streaming-live-section"),
     ], className="res-content"),
 ])
 
@@ -159,6 +164,71 @@ def update_leaderboard(year, top_n):
         showlegend=False,
     )
     return fig_bar, detail, fig_radar
+
+
+@callback(
+    Output("streaming-live-section", "children"),
+    Input("streaming-interval", "n_intervals"),
+)
+def update_live_feed(n_intervals):
+    """Poll for the streaming Gold table and render a live top-artists bar chart.
+
+    Returns an empty div when the streaming pipeline has not yet written data.
+    Clears the data_loader cache so each tick reads the latest Delta snapshot.
+    """
+    if "top_artists_streaming" not in available_tables():
+        return html.Div()
+
+    load_gold.cache_clear()
+    try:
+        df = load_gold("top_artists_streaming")
+    except Exception:
+        return html.Div()
+
+    if df.empty:
+        return html.Div()
+
+    df["month_start"] = pd.to_datetime(df["month_start"])
+    top = (
+        df.groupby("artist")["monthly_streams"]
+        .sum()
+        .nlargest(10)
+        .reset_index()
+        .sort_values("monthly_streams")
+    )
+
+    fig = go.Figure(go.Bar(
+        x=top["monthly_streams"],
+        y=top["artist"],
+        orientation="h",
+        marker=dict(color=ACCENT, opacity=0.85, line=dict(width=0)),
+        text=[f"{v/1e6:.0f}M" for v in top["monthly_streams"]],
+        textposition="outside",
+        textfont=dict(color="var(--res-text-tertiary)", size=11),
+        hovertemplate="<b>%{y}</b><br>%{x:,} streams<extra></extra>",
+    ))
+    fig.update_layout(
+        margin=dict(l=4, r=64, t=8, b=24),
+        xaxis=dict(title="Total Streams (streaming feed)"),
+        yaxis=dict(automargin=True),
+    )
+
+    total_rows = int(df.shape[0])
+    return html.Div([
+        section_header(
+            "Live Feed",
+            meta=f"Streaming pipeline · {total_rows:,} records ingested · refreshes every 30 s",
+        ),
+        html.Div(
+            chip("● STREAMING LIVE", accent=True),
+            style={"marginBottom": "12px"},
+        ),
+        chart_card(
+            "Top artists from streaming ingestion",
+            dcc.Graph(figure=fig, style={"height": "340px"}),
+            meta="Kafka → Spark Structured Streaming → Delta → Dash",
+        ),
+    ])
 
 
 @callback(Output("artist-rolling", "figure"), Input("artist-select", "value"))

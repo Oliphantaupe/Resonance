@@ -9,7 +9,8 @@ RUN pip install --no-cache-dir \
     pandas==2.2.2 \
     pyarrow==16.1.0 \
     deltalake==0.18.2 \
-    statsmodels==0.14.2
+    statsmodels==0.14.2 \
+    "kafka-python>=2.0.2"
 
 COPY dashboard/ ./dashboard/
 

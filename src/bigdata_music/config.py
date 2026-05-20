@@ -51,3 +51,15 @@ SPARK_LOCAL_DIR     = os.getenv("SPARK_LOCAL_DIR", str(DATA_ROOT / "spark-tmp"))
 RUN_BRONZE  = os.getenv("RUN_BRONZE", "true").lower() == "true"
 RUN_SILVER  = os.getenv("RUN_SILVER", "true").lower() == "true"
 RUN_GOLD    = os.getenv("RUN_GOLD",   "true").lower() == "true"
+
+# ---------------------------------------------------------------------------
+# Streaming — Kafka + Structured Streaming paths
+# ---------------------------------------------------------------------------
+KAFKA_BOOTSTRAP             = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
+KAFKA_TOPIC                 = "charts-feed"
+
+BRONZE_CHARTS_STREAMING     = str(BRONZE / "charts_streaming")
+SILVER_CHARTS_STREAMING     = str(SILVER / "charts_streaming")
+GOLD_TOP_ARTISTS_STREAMING  = str(GOLD   / "top_artists_streaming")
+GOLD_RECENT_SUBMISSIONS     = str(GOLD   / "recent_submissions")
+CHECKPOINT_CHARTS_STREAMING = str(DATA_ROOT / "checkpoints" / "charts_streaming")

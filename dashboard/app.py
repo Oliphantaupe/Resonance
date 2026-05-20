@@ -13,6 +13,7 @@ NAV = [
     {"path": "/streaks",    "label": "Streaks",      "glyph": "flame"},
     {"path": "/evolution",  "label": "Era Evolution","glyph": "timeline"},
     {"path": "/artists",    "label": "Top Artists",  "glyph": "star"},
+    {"path": "/submit",     "label": "Submit",       "glyph": "export"},
 ]
 
 # ── Dock ─────────────────────────────────────────────────────────────

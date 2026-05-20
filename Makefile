@@ -1,4 +1,5 @@
-.PHONY: up down pipeline charts test clean verify mlflow-ui urls
+.PHONY: up down pipeline charts test clean verify mlflow-ui urls \
+        streaming-up streaming-down streaming-logs
 
 # --- Docker (primary workflow) ---
 up:
@@ -9,6 +10,12 @@ down:
 
 streaming-up:
 	docker compose --profile streaming up -d
+
+streaming-down:
+	docker compose --profile streaming down
+
+streaming-logs:
+	docker compose --profile streaming logs -f kafka-producer kafka-consumer
 
 # --- Pipeline ---
 pipeline:

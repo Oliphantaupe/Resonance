@@ -144,6 +144,21 @@ def add_time_columns(df: DataFrame) -> DataFrame:
 # Orchestrator
 # ---------------------------------------------------------------------------
 
+def transform_charts(df: DataFrame) -> DataFrame:
+    """Apply the full silver cleaning chain to a raw charts DataFrame.
+
+    Pure transformation — no I/O. Usable from both the batch pipeline
+    (build_silver_charts) and the streaming foreachBatch handler.
+    """
+    df = extract_track_id(df)
+    df = cast_date_with_fallback(df)
+    df = cast_numeric_columns(df)
+    df = filter_corrupt_rows(df)
+    df = deduplicate_chart_entries(df)
+    df = add_time_columns(df)
+    return df.drop("date", "_corrupt_record")
+
+
 def build_silver_charts(spark: SparkSession) -> int:
     """Apply all cleaning steps Bronze → silver/charts_cleaned (Delta).
 
@@ -152,15 +167,7 @@ def build_silver_charts(spark: SparkSession) -> int:
     log.info("Silver: loading bronze charts from %s", config.BRONZE_CHARTS)
     df = read_delta(spark, config.BRONZE_CHARTS)
 
-    df = extract_track_id(df)
-    df = cast_date_with_fallback(df)
-    df = cast_numeric_columns(df)
-    df = filter_corrupt_rows(df)
-    df = deduplicate_chart_entries(df)
-    df = add_time_columns(df)
-
-    # Drop raw columns superseded by cleaned ones
-    df = df.drop("date", "_corrupt_record")
+    df = transform_charts(df)
 
     df = df.persist(StorageLevel.MEMORY_AND_DISK)
     row_count = df.count()
